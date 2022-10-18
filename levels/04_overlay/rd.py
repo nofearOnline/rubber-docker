@@ -32,27 +32,40 @@ def _get_container_path(container_id, container_dir, *subdir_names):
 
 def create_container_root(image_name, image_dir, container_id, container_dir):
     image_path = _get_image_path(image_name, image_dir)
+    image_root = os.path.join(image_dir, image_name, 'rootfs')
+    overlay_path = os.path.join(container_dir, "overlay")
+
+    if not os.path.exists(overlay_path):
+        os.makedirs(overlay_path)
+
     assert os.path.exists(image_path), "unable to locate image %s" % image_name
 
-    # TODO: Instead of creating the container_root and extracting to it,
-    #       create an images_root.
-    # keep only one rootfs per image and re-use it
-    container_root = _get_container_path(container_id, container_dir, 'rootfs')
-
-    if not os.path.exists(container_root):
-        os.makedirs(container_root)
+    if not os.path.exists(image_root):
+        os.makedirs(image_root)
         with tarfile.open(image_path) as t:
             # Fun fact: tar files may contain *nix devices! *facepalm*
             members = [m for m in t.getmembers()
                        if m.type not in (tarfile.CHRTYPE, tarfile.BLKTYPE)]
-            t.extractall(container_root, members=members)
+            t.extractall(image_root, members=members)
 
+    upper_path = _get_container_path(container_id, overlay_path, 'upper')
+    work_root = _get_container_path(container_id, overlay_path, 'work')
+    merged_mount_point = _get_container_path(container_id, overlay_path, 'merged')
     # TODO: create directories for copy-on-write (uppperdir), overlay workdir,
     #       and a mount point
+    if not os.path.exists(upper_path):
+        os.makedirs(upper_path)
+    if not os.path.exists(work_root):
+        os.makedirs(work_root)
+    if not os.path.exists(merged_mount_point):
+        os.makedirs(merged_mount_point)
+
+    print("lowerdir=" + image_root + ",upperdir=" + upper_path + ",workdir=" + work_root)
+    
+    linux.mount('overlay', merged_mount_point, "overlayfs", linux.MS_NODEV, "lowerdir=" + image_root + ",upperdir=" + upper_path + ",workdir=" + work_root)
 
     # TODO: mount the overlay (HINT: use the MS_NODEV flag to mount)
-
-    return container_root  # return the mountpoint for the mounted overlayfs
+    return merged_mount_point  # return the mountpoint for the mounted overlayfs
 
 
 @click.group()
@@ -109,6 +122,8 @@ def contain(command, image_name, image_dir, container_id, container_dir):
 
     linux.umount2('/old_root', linux.MNT_DETACH)  # umount old root
     os.rmdir('/old_root')  # rmdir the old_root dir
+    
+    
     os.execvp(command[0], command)
 
 

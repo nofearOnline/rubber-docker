@@ -94,6 +94,22 @@ def _create_mounts(new_root):
 
     makedev(os.path.join(new_root, 'dev'))
 
+def set_cpu_cgroup(cpu_shares, container_id):
+    cgroup_prefix = "/sys/fs/cgroup/cpu/rubber-docker/"
+    if int(cpu_shares) <= 0:
+        return
+
+    if not os.path.exists(cgroup_prefix):
+        os.mkdir(cgroup_prefix)
+    
+    container_cgroups = os.path.join(cgroup_prefix, container_id)
+    os.mkdir(container_cgroups)
+    with open(os.path.join(container_cgroups, "tasks"), 'w') as tasks_f:
+        tasks_f.write(str(os.getpid()))
+
+    with open(os.path.join(container_cgroups, "cpu.shares"), 'w') as cpu_f:
+        cpu_f.write(str(cpu_shares))
+
 
 def contain(command, image_name, image_dir, container_id, container_dir,
             cpu_shares):
@@ -101,6 +117,8 @@ def contain(command, image_name, image_dir, container_id, container_dir,
     #       'rubber_docker/container_id'
 
     # TODO: if (cpu_shares != 0)  => set the 'cpu.shares' in our cpu cgroup
+
+    set_cpu_cgroup(cpu_shares, container_id)
 
     linux.sethostname(container_id)  # change hostname to container_id
 

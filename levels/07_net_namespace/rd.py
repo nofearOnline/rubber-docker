@@ -97,7 +97,7 @@ def _create_mounts(new_root):
 
 def contain(command, image_name, image_dir, container_id, container_dir):
     linux.sethostname(container_id)  # change hostname to container_id
-
+    
     linux.mount(None, '/', None, linux.MS_PRIVATE | linux.MS_REC, None)
 
     new_root = create_container_root(
@@ -105,6 +105,8 @@ def contain(command, image_name, image_dir, container_id, container_dir):
     print('Created a new root fs for our container: {}'.format(new_root))
 
     _create_mounts(new_root)
+
+    # os.symlink(new_root + "/proc/1/ns/net", "/var/run/netns/netns-" + container_id[:5])
 
     old_root = os.path.join(new_root, 'old_root')
     os.makedirs(old_root)
@@ -131,7 +133,8 @@ def run(image_name, image_dir, container_dir, command):
     # TODO: switch to a new NET namespace
     # linux.clone(callback, flags, callback_args) is modeled after the Glibc
     # version. see: "man 2 clone"
-    flags = linux.CLONE_NEWPID | linux.CLONE_NEWNS | linux.CLONE_NEWUTS
+    
+    flags = linux.CLONE_NEWPID | linux.CLONE_NEWNS | linux.CLONE_NEWUTS | linux.CLONE_NEWNET
     callback_args = (command, image_name, image_dir, container_id,
                      container_dir)
     pid = linux.clone(contain, flags, callback_args)

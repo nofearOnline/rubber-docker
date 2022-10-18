@@ -131,10 +131,7 @@ def contain(command, image_name, image_dir, container_id, container_dir):
 def run(image_name, image_dir, container_dir, command):
     container_id = str(uuid.uuid4())
 
-    # TODO: Switching to a new PID namespace (using unshare) would only affect
-    #       the children of a process (because we can't change the PID of a
-    #       running process), so we'll have to unshare here OR replace
-    #       os.fork() with linux.clone()
+    linux.unshare(linux.CLONE_NEWPID)
 
     pid = os.fork()
     if pid == 0:

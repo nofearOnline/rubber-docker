@@ -111,14 +111,33 @@ def _setup_cpu_cgroup(container_id, cpu_shares):
         cpu_shares_file = os.path.join(container_cpu_cgroup_dir, 'cpu.shares')
         open(cpu_shares_file, 'w').write(str(cpu_shares))
 
+def _setup_memory_cgroup(container_id, memory, memory_swap):
+    MEMORY_CGROUP_BASEDIR = '/sys/fs/cgroup/memory'
+    container_memory_cgroup_dir = os.path.join(
+        MEMORY_CGROUP_BASEDIR, 'rubber_docker', container_id)
+
+    # Insert the container to new memory cgroup named 'rubber_docker/container_id'
+    if not os.path.exists(container_memory_cgroup_dir):
+        os.makedirs(container_memory_cgroup_dir)
+
+    tasks_file = os.path.join(container_memory_cgroup_dir, 'tasks')
+    with open(tasks_file, 'w') as f:
+        f.write(str(os.getpid()))
+
+    if memory:
+        cpu_shares_file = os.path.join(container_memory_cgroup_dir, 'memory.limit_in_bytes')
+        with open(cpu_shares_file, 'w') as f:
+            f.write(str(memory))
+
+    if memory_swap:
+        cpu_swap_file = os.path.join(container_memory_cgroup_dir, 'memory.memsw.limit_in_bytes')
+        with open(cpu_swap_file, 'w') as f:
+            f.write(str(memory_swap))
 
 def contain(command, image_name, image_dir, container_id, container_dir,
             cpu_shares, memory, memory_swap):
     _setup_cpu_cgroup(container_id, cpu_shares)
-
-    # TODO: similarly to the CPU cgorup, add Memory cgroup support here
-    #       setup memory -> memory.limit_in_bytes,
-    #       memory_swap -> memory.memsw.limit_in_bytes if they are not None
+    _setup_memory_cgroup(container_id, memory, memory_swap)
 
     linux.sethostname(container_id)  # Change hostname to container_id
 
